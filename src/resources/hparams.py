@@ -5,7 +5,7 @@ bert="xlmr"
 pretrained_envibert_uncased ='src/resources/pretrained/uncased'
 pretrained_envibert_cased= 'src/resources/pretrained/envibert'
 
-nb_labels= 11
+nb_labels= 9
 hidden_dim_lstm=256
 drop_rate=0.1
 
