@@ -1,18 +1,11 @@
-from importlib.machinery import SourceFileLoader
-from transformers import XLMRobertaTokenizer, XLMRobertaModel
-# from fairseq.models.roberta import XLMRModel
 import json
-import threading
-from threading import Thread, current_thread
 import pandas as pd
 from sklearn.metrics import classification_report
 import seaborn as sn
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
-from transformers import RobertaModel
-from src.model.envibert_bilstm import envibert_bilstm
+from src.model.bert_bilstm import bert_bilstm
 from src.utils import *
-from src import utils
 from torch.utils.data import DataLoader
 from src.dataset.dataset import Dataset
 from src.resources import hparams
@@ -24,33 +17,22 @@ from torch import nn
 import torch
 
 class trainer():
-    def __init__(self, cuda, is_warm_up=True, mode="train", infer_path=None, bert="envibert"):
+    def __init__(self, cuda, is_warm_up=True, mode="train", infer_path=None, bert_type="envibert_cased"):
         self.device = cuda
+        self.bert_type = bert_type
         
-        if bert =="envibert":
-            print("use: envibert")
-            self.tokenizer = SourceFileLoader("envibert.tokenizer", 
-                    os.path.join(hparams.pretrained_envibert,'envibert_tokenizer.py')).load_module().RobertaTokenizer(hparams.pretrained_envibert)
-            self.envibert = RobertaModel.from_pretrained('nguyenvulebinh/envibert',cache_dir=hparams.pretrained_envibert)
-        elif bert =="envibert_uncased":
-            print("use: envibert_uncased")
-            self.tokenizer = SourceFileLoader("envibert.tokenizer", 
-                    os.path.join(hparams.pretrained_uncased_envibert,'envibert_tokenizer.py')).load_module().RobertaTokenizer(hparams.pretrained_envibert)
-            # self.envibert = XLMRModel.from_pretrained(hparams.pretrained_uncased_envibert, checkpoint_file='model.pt')
-        elif bert =="xlmr":
-            print("use: xlm roberta")
-            self.tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base')
-            self.envibert = XLMRobertaModel.from_pretrained("xlm-roberta-base")
-        
-        self.model = envibert_bilstm(
+        self.model = bert_bilstm(
             cuda=cuda,
             nb_label=hparams.nb_labels, 
-            envibert=self.envibert).to(cuda)  
+            bert_type=self.bert_type).to(cuda)
+        self.tokenizer= self.model.tokenizer
+          
         self.optimizer = optim.Adam(
             self.model.parameters(), 
             lr=hparams.lr, 
             weight_decay=hparams.weight_decay)
         
+        print("Model Architecture: ", self.model)
         self.loss = torch.nn.CrossEntropyLoss(ignore_index=1)
         self.max_epoch = hparams.max_epoch
         self.is_warm_up = is_warm_up
@@ -60,16 +42,15 @@ class trainer():
         
         if mode == "train":
             if os.path.exists(hparams.warm_up) and is_warm_up == True:
-                print("warm up from: ", hparams.warm_up)
+                print("warm up: ", hparams.warm_up)
                 self.model.load_state_dict(torch.load(hparams.warm_up, map_location=self.device))
+                
             self.train_dl = self.load_data(path=hparams.train_path, 
                                            batch_size=hparams.train_bs, 
-                                           tokenizer=self.tokenizer, 
                                            tag2index=self.tag2index,
                                            max_sent_length=hparams.max_sent_length)
             self.val_dl = self.load_data(path=hparams.val_path, 
                                            batch_size=hparams.val_bs, 
-                                           tokenizer=self.tokenizer, 
                                            tag2index=self.tag2index,
                                            max_sent_length=hparams.max_sent_length)
             if hparams.parallel == True:
@@ -82,7 +63,6 @@ class trainer():
                 print("Not exist! ")
             self.test_dl = self.load_data(path=hparams.test_path, 
                                            batch_size=hparams.test_bs, 
-                                           tokenizer=self.tokenizer, 
                                            tag2index=self.tag2index,
                                            max_sent_length=hparams.max_sent_length)
         elif mode == "infer":
@@ -93,24 +73,19 @@ class trainer():
                 self.model.load_state_dict(torch.load(self.infer_path, map_location="cpu"))
         
         
-    def load_data(self, path, batch_size, tokenizer, tag2index,max_sent_length):
+    def load_data(self, path, batch_size, tag2index,max_sent_length):
         print("load data: ", path)
-        
-        threadLock = threading.Lock()
-        
-        print("tmp: ", max_sent_length)
+        print("max sentence length: ", max_sent_length)
         
         input_ids, label_ids = load_data_parallel(
             path=path,
-            tokenizer=self.tokenizer,
             tag2index=tag2index, 
             max_sent_length=max_sent_length
         )
         
-        print("input_ids: ", input_ids[0])
+        print("sample: ", input_ids[0])
         input_ids = torch.tensor(input_ids[:-1], dtype=torch.int32)
-        print("input-shape: ", input_ids.shape)
-        # print(input_ids[0])
+        print("shape: ", input_ids.shape)
         label_ids = torch.tensor(label_ids[:-1], dtype=torch.int32)
         
         data =  Dataset(input_ids=input_ids, 
@@ -201,8 +176,8 @@ class trainer():
             # print(labels.shape)
             results = classification_report(y_pred=predicts,y_true=labels, target_names=target_names, labels=range(len(target_names)))
             confus_matrix = confusion_matrix(y_pred=predicts,y_true=labels, labels=range(len(target_names)))
-            print(results)
-            print(confus_matrix)
+            print("results: ", results)
+            print("confus_matrix: ", confus_matrix)
         
             f1_path = hparams.res_path.replace("%EPOCH%", "test")
             confusion_path = hparams.confusion_matrix_path.replace("%EPOCH%", "test")
@@ -218,10 +193,10 @@ class trainer():
     
     def load_model(self, path, val_cuda):
         print("load checkpoint: ", path)
-        model = envibert_bilstm(
+        model = bert_bilstm(
                     cuda=val_cuda,
                     nb_label=hparams.nb_labels, 
-                    envibert=self.envibert).to(val_cuda)  
+                    envibert=self.bert).to(val_cuda)  
         model.load_state_dict(torch.load(path, map_location=val_cuda))
         return model
     

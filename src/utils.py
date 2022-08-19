@@ -1,15 +1,10 @@
 from importlib.machinery import SourceFileLoader
 from multiprocessing import Pool
-import threading
-from threading import Thread, current_thread
-from multiprocessing import Process
+from transformers import XLMRobertaTokenizer, XLMRobertaModel
 from tqdm import tqdm
-import multiprocessing
-import torch
 from src.resources import hparams
 import random
 import os
-import numpy as np
 
 def extend_label(tokens, labels):
     idx = 0
@@ -49,10 +44,7 @@ def convert_data2ids(tokenizer, sent, label, tag2index):
     
     input_ids = tokenizer.convert_tokens_to_ids(tokens)
     label_ids = cvt_label2ids(labels, tag2index)
-    
-    # input_ids = tokens
-    # label_ids = labels
-    
+
     return input_ids, label_ids
 
 def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
@@ -66,10 +58,7 @@ def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
     
     label_masks = [1]*len(label_ids)
     input_masks = [1]*len(input_ids)
-    
-    # print("choice: ", choice)     
-    # print("offset:", offset)  
-    # print("before: ", input_ids)
+
     if choice == "cut_both_sides":
         label_ids = [0] + label_ids[offset:-offset] + [2]
         input_ids = [0] + input_ids[offset:-offset] + [2]
@@ -90,8 +79,6 @@ def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
         input_ids = [0] + input_ids + [2]
         label_masks = [1] + label_masks + [1]
         input_masks = [1] + input_masks + [1]
-    # print("after: ", input_ids)
-    
      
     sent_length = len(input_ids)
     
@@ -146,7 +133,6 @@ def merge_sent(input_ids, label_ids):
                 datas_temp, label_temp = [], []
                 idx -= 1
             else:
-                # print(str(len(input_ids)) + " - "+str(idx))
                 current_len +=  len(label_ids[idx])
                 datas_temp += input_ids[idx]
                 label_temp += label_ids[idx]  
@@ -154,36 +140,28 @@ def merge_sent(input_ids, label_ids):
         i = idx + 1
     return new_datas, new_labels
 
-def load_data_parallel(path, tokenizer, tag2index, max_sent_length):
-    files = os.listdir(path)
-    files = [os.path.join(path, file) for file in files]
-    
-    
-    # args = [(folder, tag2index, max_sent_length) for folder in folders]
+def load_data_parallel(path, tag2index, max_sent_length):
+    files = [os.path.join(path, file) for file in os.listdir(path)]
+
     print("total: ", len(files))
     num_cores = hparams.num_cores
     print("num_cores: ", num_cores)
     files = transform_list(files, num_cores)    
     
-    
     pool = Pool(processes=num_cores)
     
-    # thread_lists = []
-    # for index, file in enumerate(files):
-        # thread_tmp = Thread(name=f"thread_{index}",target=load_data,args=(file,tag2index, max_sent_length))
-    args = [(file,tag2index, max_sent_length) for file in files]
+    args = [(file, tag2index, max_sent_length) for file in files]
     res = pool.starmap(load_data, args)
-        # thread_lists.append(thread_tmp)
-        # thread_tmp.start()
-    pool.close()
-    pool.join()
+
+    pool.close(); pool.join()
     print("finished")
     
     res = (i for i in res)
     input_ids, label_ids = [], []
     for input_id, label_id in res:
         input_ids += input_id
-        label_ids += label_id        
+        label_ids += label_id 
+    res = None       
     return input_ids, label_ids
 
 def transform_list(files, num_cores):
@@ -194,73 +172,30 @@ def transform_list(files, num_cores):
         end = (i + 1) * n
         threads.append(files[start:end])
     return threads
-    
-
-# def load_data_parallel(path, threadLock, tag2index, max_sent_length):
-#     global datas_global
-#     global labels_global
-    
-#     datas_global, labels_global = [], []
-#     files = os.listdir(path)
-#     files = [os.path.join(path, file) for file in files]
-    
-    
-#     # args = [(folder, tag2index, max_sent_length) for folder in folders]
-#     print("total: ", len(files))
-#     num_cores = hparams.num_cores
-#     print("num_cores: ", num_cores)
-#     files = transform_list(files, num_cores)    
-    
-#     thread_lists = []
-#     for index, file in enumerate(files):
-#         thread_tmp = Thread(name=f"thread_{index}",target=load_data,args=(file, threadLock ,tag2index, max_sent_length))
-#         thread_lists.append(thread_tmp)
-#         # thread_tmp.start()
-        
-#     for process_tmp in thread_lists:
-#         process_tmp.start()
-    
-#     for process_tmp in thread_lists:
-#         process_tmp.join()
-        
-#     print("finished")
-#     datas_global = (i for i in datas_global)
-#     input_ids = [list(sent) for sent in datas_global]
-#     datas_global = None
-    
-#     labels_global = (i for i in labels_global)
-#     label_ids = [list(sent) for sent in labels_global]
-#     labels_global = None
-        
-#     return input_ids, label_ids
 
 def load_data(files, tag2index, max_sent_length):
-    tokenizer = SourceFileLoader("envibert.tokenizer", 
-                    os.path.join(hparams.pretrained_envibert,'envibert_tokenizer.py'))\
-                        .load_module().RobertaTokenizer(hparams.pretrained_envibert)
-    datas_global = []
-    labels_global = []
+    if hparams.toknizer_path == None:
+        tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base')
+    else:
+        tokenizer = SourceFileLoader("envibert.tokenizer", 
+                    os.path.join(hparams.toknizer_path,'envibert_tokenizer.py'))\
+                        .load_module().RobertaTokenizer(hparams.toknizer_path)
+    datas_global, labels_global = [], []
+    
     for input_ids, label_ids in load_folder(files, tokenizer, tag2index, max_sent_length):
-        # threadLock.acquire()
         for input_id, label_id in zip(input_ids, label_ids):
-            # print(input_id)
-            # print("shape: ", len(input_id))
             datas_global.append(input_id)
             labels_global.append(label_id)
+            
     return (datas_global, labels_global)
-        # threadLock.release() 
                         
 def load_file(path, tokenizer, tag2index, max_sent_length):
-    input_ids, label_ids = [], []
-    # count = 0
-    
     with open(path, "r",encoding="utf-8") as tmp:
         lines = tmp.readlines()
         datas_temp, labels_temp = "", []
         for line in lines:
             temp = line.replace("\n","").split("\t")
             if(line == "\n"):
-                # count += 1
                 input_id, label_id = convert_data2ids(tokenizer, datas_temp, labels_temp, tag2index)
                 
                 if input_id == None or label_id == None:
@@ -273,17 +208,8 @@ def load_file(path, tokenizer, tag2index, max_sent_length):
                     input_id = input_id[0:max_sent_length]
                     label_id = label_id[0:max_sent_length]
                     continue
-                # else:
-                #     input_id = input_id + [-1]*(max_sent_length - len_tmp)
-                #     label_id = label_id + [-1]*(max_sent_length - len_tmp)
-                    
-                # input_ids.append(input_id)
-                # label_ids.append(label_id)
-                
-                # if count == 50:
+
                 yield input_id, label_id
-                    # input_ids, label_ids = [], []
-                    # count = 0
                     
                 datas_temp, labels_temp = "", []
             else:
@@ -291,13 +217,9 @@ def load_file(path, tokenizer, tag2index, max_sent_length):
                 if "?" in temp[1]:
                     temp[1] = temp[1].replace("?",".")
                 labels_temp.append(temp[1])
-    # print(label_ids)
-    # return input_ids, label_ids
 
 def load_folder(files, tokenizer, tag2index, max_sent_length):
-    thread = current_thread()
-    name=thread.name
-    for file in tqdm(files, total=len(files), postfix={"process":name}):        
+    for file in tqdm(files, total=len(files)):        
         input_ids, label_ids =[], []
         input_ids_tmp, label_ids_tmp =[], []
         current_len, count_sample = 0, 0
@@ -308,10 +230,7 @@ def load_folder(files, tokenizer, tag2index, max_sent_length):
             if current_len + length< hparams.max_sent_length:
                 input_ids_tmp += input_id;label_ids_tmp += label_id
                 current_len += length
-            # input_ids, label_ids = merge_sent(input_ids, label_ids)
             else:
-                # if len(input_ids_tmp) != len(label_ids_tmp):
-                #     print("Error")
                 input_ids_tmp = input_ids_tmp + [tokenizer.convert_tokens_to_ids("<pad>")] * (max_sent_length-len(input_ids_tmp))
                 label_ids_tmp = label_ids_tmp + [tag2index["<pad>"]] * (max_sent_length-len(label_ids_tmp))
                 

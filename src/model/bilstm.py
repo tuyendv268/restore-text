@@ -2,12 +2,12 @@ import torch
 from torch import nn
 
 class BiLSTM(nn.Module):
-    def __init__(self, cuda, emb_dim, hidden_dim):
+    def __init__(self, cuda, embedding_dim, hidden_dim):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.cuda = cuda
         self.lstm = nn.LSTM(
-            emb_dim, 
+            embedding_dim, 
             hidden_dim // 2, 
             bidirectional=True, 
             batch_first=True
