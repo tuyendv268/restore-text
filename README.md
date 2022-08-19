@@ -1,0 +1,1 @@
+restore punct and capu
