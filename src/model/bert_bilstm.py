@@ -35,9 +35,16 @@ class bert_bilstm(nn.Module):
         self.linear = nn.Linear(hparams.hidden_dim_lstm, nb_label).to(cuda)
 
     def forward(self, input_ids, input_masks):
-        output = self.bert(input_ids=input_ids, 
+        if self.bert_type == "envibert_uncased":
+            sequence_output = self.bert.extract_features(input_ids)
+        elif self.bert_type == "envibert_cased":
+            output = self.bert(input_ids=input_ids, 
                             attention_mask = input_masks)
-        sequence_output, _ = output[0], output[1]
+            sequence_output, _ = output[0], output[1]
+        elif self.bert_type == "xlmr":
+            output = self.bert(input_ids, input_masks)
+            sequence_output, _ = output[0], output[1]
+        
         sequence_output = self.dropout(sequence_output)
         sequence_output = self.bilstm(sequence_output)
         output = self.linear(sequence_output)

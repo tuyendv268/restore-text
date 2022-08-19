@@ -124,12 +124,12 @@ class trainer():
                 if((idx+1) % 20000 == 0):
                     PATH = hparams.checkpoint_path.replace("%EPOCH%", str(idx+1))
                     torch.save(self.model.state_dict(), PATH)
-                    print("saved checkpoint: ", PATH)
+                    print("\nsaved checkpoint: ", PATH)
                 
             # if ((epoch) % 1 == 0):
             PATH = hparams.checkpoint_path.replace("%EPOCH%", str(epoch))
             torch.save(self.model.state_dict(), PATH)
-            print("Saved checkpoint: ", PATH)
+            print("\nsaved checkpoint: ", PATH)
             
             results,confus_matrix  = self.val(PATH)
                 
@@ -137,7 +137,7 @@ class trainer():
             confusion_path = hparams.confusion_matrix_path.replace("%EPOCH%", str(epoch))
             
             self.save_confusion_matrix(confus_matrix, confusion_path)
-            print("saved: ", confusion_path)
+            print("\nsaved: ", confusion_path)
             
             with open(f1_path, "w") as tmp:
                 tmp.write(results)
@@ -167,13 +167,11 @@ class trainer():
                     labels = torch.cat((labels, label_ids.type(torch.int8)), dim=0)
             predicts = predicts.view(-1)
             labels = labels.view(-1)
-            # results = torchmetrics.functional.f1_score(preds=predicts, target=labels)
             target_names = [self.index2tag[str(i)] for i in range(hparams.nb_labels)]
-            # print(target_names)
+
             predicts = predicts.cpu().numpy()
             labels = labels.cpu().numpy()
-            # print(predicts.shape)
-            # print(labels.shape)
+
             results = classification_report(y_pred=predicts,y_true=labels, target_names=target_names, labels=range(len(target_names)))
             confus_matrix = confusion_matrix(y_pred=predicts,y_true=labels, labels=range(len(target_names)))
             print("results: ", results)
@@ -274,29 +272,7 @@ class trainer():
         out_sent = self.restore(tokens=join_tokens, labels=join_tags)
         return out_sent
 
-    def remove_punct(self, text):
-        punct = '''!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'''
-        text = [char for char in text if char not in punct]
-        text = "".join(text)
-        text = text.lower()
-        return text
-
-    def restore(self, tokens, labels):
-        res = ''
-        index = 0
-        while index < len(tokens):
-            if labels[index].endswith('upper'):
-                res += tokens[index].capitalize() + " "
-            elif labels[index] == "O":
-                res += tokens[index] + " "
-            elif 'upper' in labels[index]:
-                res += tokens[index].capitalize() + labels[index].replace("upper","")+" "
-            elif 'O' in labels[index]:
-                res += tokens[index] + labels[index].replace("O","")+" "
-            index += 1
-        return res
-
-    def do_restore(self, raw_text):
-        inp_text = self.remove_punct(text=raw_text)
+    def infer_sent(self, raw_text):
+        inp_text = remove_punct(text=raw_text)
         out_text = self.infer(inp_text, self.model, self.tokenizer)
-        return raw_text, out_text , inp_text
+        return raw_text, out_text, inp_text

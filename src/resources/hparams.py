@@ -1,6 +1,6 @@
-bert="envibert_cased"
+# bert="envibert_cased"
 # bert="envibert_uncased"
-# bert="xlmr"
+bert="xlmr"
 
 pretrained_envibert_uncased ='src/resources/pretrained/uncased'
 pretrained_envibert_cased= 'src/resources/pretrained/envibert'
@@ -50,7 +50,7 @@ confusion_matrix_path=f"results/confusion-matrix/{bert}/confusion_matrix_{bert}_
 warm_up="checkpoint/checkpoint_.pt"
 test_checkpoint="checkpoint/envibert/checkpoint_envibert_0.pt"
 
-train_bs=8
+train_bs=1
 val_bs=128
 test_bs=128
 

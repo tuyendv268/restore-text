@@ -273,3 +273,25 @@ def joins(sp_tokens, sp_tags):
         join_tokens.append(join_token)
         join_tags.append(join_tag)
     return join_tokens, join_tags
+
+def remove_punct(text):
+    punct = '''!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~'''
+    text = [char for char in text if char not in punct]
+    text = "".join(text)
+    text = text.lower()
+    return text
+
+def restore(tokens, labels):
+    res = ''
+    index = 0
+    while index < len(tokens):
+        if labels[index].endswith('upper'):
+            res += tokens[index].capitalize() + " "
+        elif labels[index] == "O":
+            res += tokens[index] + " "
+        elif 'upper' in labels[index]:
+            res += tokens[index].capitalize() + labels[index].replace("upper","")+" "
+        elif 'O' in labels[index]:
+            res += tokens[index] + labels[index].replace("O","")+" "
+        index += 1
+    return res
