@@ -25,7 +25,7 @@ max_epoch=10
 max_sent_length=256
 
 yield_every=256
-num_cores=3
+num_cores=20
 
 mode="train"
 parallel=True
@@ -47,17 +47,17 @@ checkpoint_path=f'checkpoint/{bert}/checkpoint_{bert}_%EPOCH%.pt'
 res_path=f"results/f1-score/{bert}/acc_{bert}_%EPOCH%.txt"
 confusion_matrix_path=f"results/confusion-matrix/{bert}/confusion_matrix_{bert}_%EPOCH%.jpg"
 
-warm_up="checkpoint/checkpoint_.pt"
+warm_up="checkpoint/envibert_cased/checkpoint_envibert_cased_.pt"
 test_checkpoint="checkpoint/envibert/checkpoint_envibert_0.pt"
 
-train_bs=1
+train_bs=256
 val_bs=128
 test_bs=128
 
 # /home/tuyendv/projects/tag-label-restore-punct/output_data/test
-train_path="data/train"
-test_path="data/train"
-val_path="data/train"
+train_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/train"
+test_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/test"
+val_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/test"
 
 
 PAD_TOKEN, PAD_TOKEN_ID="<pad>", 1

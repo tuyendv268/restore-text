@@ -72,6 +72,13 @@ class trainer():
                 print("Load model: ", self.infer_path)
                 self.model.load_state_dict(torch.load(self.infer_path, map_location="cpu"))
         
+        elif mode == "demo":
+            self.infer_path=infer_path
+            
+            if os.path.exists(self.infer_path):
+                print("Load model: ", self.infer_path)
+                self.model.load_state_dict(torch.load(self.infer_path, map_location=cuda))
+                torch.save("demo.pt")
         
     def load_data(self, path, batch_size, tag2index,max_sent_length):
         print("load data: ", path)
@@ -105,6 +112,7 @@ class trainer():
         print("---------------start training---------------")
         for epoch in range(self.max_epoch):
             train_tqdm = tqdm(self.train_dl)
+            self.model.train()
             for idx ,input_data in enumerate(train_tqdm):
                 self.model.zero_grad()
                 
@@ -128,7 +136,7 @@ class trainer():
                 
             # if ((epoch) % 1 == 0):
             PATH = hparams.checkpoint_path.replace("%EPOCH%", str(epoch))
-            torch.save(self.model.state_dict(), PATH)
+            torch.save(self.model.to(hparams.val_cuda).state_dict(), PATH)
             print("\nsaved checkpoint: ", PATH)
             
             results,confus_matrix  = self.val(PATH)
@@ -204,6 +212,7 @@ class trainer():
             model = self.model.to(val_cuda)
             predicts, labels = None, None
             
+            model.eval()
             val_tqdm = tqdm(self.val_dl)
             for idx, input_data in enumerate(val_tqdm):
                 input_ids = input_data["input_ids"].to(val_cuda)

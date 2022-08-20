@@ -2,7 +2,7 @@ from importlib.machinery import SourceFileLoader
 from transformers import XLMRobertaTokenizer, XLMRobertaModel
 from transformers import RobertaModel
 from fairseq.models.roberta import XLMRModel
-from src.model import bilstm
+from src.model.bilstm import BiLSTM
 from src.resources import hparams
 from torch import nn
 import os
@@ -26,7 +26,7 @@ class bert_bilstm(nn.Module):
             self.tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base')
             self.bert = XLMRobertaModel.from_pretrained("xlm-roberta-base")
             
-        self.bilstm = bilstm.BiLSTM(
+        self.bilstm = BiLSTM(
             cuda=cuda, 
             embedding_dim=hparams.hidden_dim_bert, 
             hidden_dim=hparams.hidden_dim_lstm

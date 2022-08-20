@@ -5,9 +5,9 @@ from fastapi import FastAPI
 import uvicorn
 import torch
 
-infer_path="/home/tuyendv/projects/orther/norm_model/checkpoint/envibert/checkpoint_envibert.pt"
+infer_path="checkpoint/envibert_cased/checkpoint_envibert_cased_2.pt"
 cuda = 'cpu'
-trainer = trainer(cuda="cpu", mode="infer", infer_path=infer_path, bert="envibert")        
+trainer = trainer(cuda="cpu", mode="infer", infer_path=infer_path, bert_type="envibert_uncased")        
 app = FastAPI()
 @app.get("/infer")
 def infer(raw_text:Union[str, None] = None):
