@@ -1,6 +1,6 @@
-# bert="envibert_cased"
+bert="envibert_cased"
 # bert="envibert_uncased"
-bert="xlmr"
+# bert="xlmr"
 
 pretrained_envibert_uncased ='src/resources/pretrained/uncased'
 pretrained_envibert_cased= 'src/resources/pretrained/envibert'
@@ -25,7 +25,7 @@ max_epoch=10
 max_sent_length=256
 
 yield_every=256
-num_cores=20
+num_cores=3
 
 mode="train"
 parallel=True
@@ -52,11 +52,11 @@ test_checkpoint="checkpoint/envibert/checkpoint_envibert_0.pt"
 
 train_bs=256
 val_bs=128
-test_bs=128
+test_bs=1
 
 # /home/tuyendv/projects/tag-label-restore-punct/output_data/test
 train_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/train"
-test_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/test"
+test_path="/home/tuyendv/projects/tag-label-restore-punct/test"
 val_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/test"
 
 

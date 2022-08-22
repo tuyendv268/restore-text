@@ -95,14 +95,14 @@ class trainer():
         print("shape: ", input_ids.shape)
         label_ids = torch.tensor(label_ids[:-1], dtype=torch.int32)
         
-        data =  Dataset(input_ids=input_ids, 
+        self.data =  Dataset(input_ids=input_ids, 
                         label_ids=label_ids, 
                         max_sent_lenth=hparams.max_sent_length,
                         tokenizer=self.tokenizer,
                         tag2index=self.tag2index)
         
         return DataLoader(
-            dataset=data, 
+            dataset=self.data, 
             batch_size=batch_size, 
             shuffle=True,
             num_workers=8)
