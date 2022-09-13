@@ -1,6 +1,7 @@
 bert="envibert_cased"
 # bert="envibert_uncased"
 # bert="xlmr"
+random_seed=8888
 
 pretrained_envibert_uncased ='src/resources/pretrained/uncased'
 pretrained_envibert_cased= 'src/resources/pretrained/envibert'
@@ -21,21 +22,23 @@ elif bert=="xlmr":
 
 weight_decay=5e-6
 lr=6e-5
-max_epoch=10
+max_epoch=8
+# max_sent_length=256
+max_sent_length_option=64
 max_sent_length=256
 
 yield_every=256
-num_cores=3
+num_cores=20
 
 mode="train"
-parallel=True
-val_cuda=0
+parallel=False
+cuda="cuda:3"
 device_ids=[0,1,2,3]
 
-prob_cutting_both_sides=0.3
+prob_cutting_both_sides=0.2
 prob_cutting_left_sides=0.2
 prob_cutting_right_sides=0.2
-prob_stay_same=0.3
+prob_stay_same=0.4
 
 prob_list=["cut_both_sides", "cut_left_sides", "cut_right_sides", "stay_same"]
 prob_weight=[prob_cutting_both_sides, prob_cutting_left_sides, prob_cutting_right_sides, prob_stay_same]
@@ -47,17 +50,17 @@ checkpoint_path=f'checkpoint/{bert}/checkpoint_{bert}_%EPOCH%.pt'
 res_path=f"results/f1-score/{bert}/acc_{bert}_%EPOCH%.txt"
 confusion_matrix_path=f"results/confusion-matrix/{bert}/confusion_matrix_{bert}_%EPOCH%.jpg"
 
-warm_up="checkpoint/envibert_cased/checkpoint_envibert_cased_.pt"
-test_checkpoint="checkpoint/envibert/checkpoint_envibert_0.pt"
+warm_up="checkpoint/envibert_cased/checkpoint_envibert_cased_3.pt"
+test_checkpoint="checkpoint_xlmr_2.pt"
 
-train_bs=256
+train_bs=128
 val_bs=128
-test_bs=1
+test_bs=128
 
 # /home/tuyendv/projects/tag-label-restore-punct/output_data/test
-train_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/train"
-test_path="/home/tuyendv/projects/tag-label-restore-punct/test"
-val_path="/home/tuyendv/projects/tag-label-restore-punct/output_data/test"
+train_path="/home/tuyendv/datas/text-recovery-data/demo"
+test_path="/home/tuyendv/datas/text-recovery-data/test"
+val_path="/home/tuyendv/datas/text-recovery-data/test"
 
 
 PAD_TOKEN, PAD_TOKEN_ID="<pad>", 1

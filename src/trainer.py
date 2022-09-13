@@ -18,7 +18,7 @@ import torch
 
 class trainer():
     def __init__(self, cuda, is_warm_up=True, mode="train", infer_path=None, bert_type="envibert_cased"):
-        self.device = cuda
+        self.set_seed(8888)
         self.bert_type = bert_type
         
         self.model = bert_bilstm(
@@ -40,7 +40,16 @@ class trainer():
         self.tag2index=json.load(open(hparams.tag2index,"r"))
         self.index2tag=json.load(open(hparams.index2tag,"r"))
         
+        self.device = cuda
+        self.val_cuda = cuda
+        
         if mode == "train":
+            if hparams.parallel == True:
+                self.model = nn.DataParallel(self.model).to(self.device)
+                self.val_cuda = hparams.cuda
+            else:
+                self.model = self.model.to(self.device)
+                                
             if os.path.exists(hparams.warm_up) and is_warm_up == True:
                 print("warm up: ", hparams.warm_up)
                 self.model.load_state_dict(torch.load(hparams.warm_up, map_location=self.device))
@@ -53,8 +62,6 @@ class trainer():
                                            batch_size=hparams.val_bs, 
                                            tag2index=self.tag2index,
                                            max_sent_length=hparams.max_sent_length)
-            if hparams.parallel == True:
-                self.model = nn.DataParallel(self.model).to(self.device)
         elif mode == "test":
             if os.path.exists(hparams.test_checkpoint):
                 print("load model: ", hparams.test_checkpoint)
@@ -71,15 +78,25 @@ class trainer():
             if os.path.exists(self.infer_path):
                 print("Load model: ", self.infer_path)
                 self.model.load_state_dict(torch.load(self.infer_path, map_location="cpu"))
+            self.model.eval()
         
         elif mode == "demo":
-            self.infer_path=infer_path
-            
-            if os.path.exists(self.infer_path):
-                print("Load model: ", self.infer_path)
-                self.model.load_state_dict(torch.load(self.infer_path, map_location=cuda))
-                torch.save("demo.pt")
-        
+            self.test_dl = self.load_data(path=hparams.test_path, 
+                                           batch_size=hparams.test_bs, 
+                                           tag2index=self.tag2index,
+                                           max_sent_length=hparams.max_sent_length)
+    def set_seed(self, seed: int = 8888) -> None:
+        np.random.seed(seed)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        # When running on the CuDNN backend, two further options must be set
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        # Set a fixed value for the hash seed
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        print(f"Random seed set as {seed}")
+
     def load_data(self, path, batch_size, tag2index,max_sent_length):
         print("load data: ", path)
         print("max sentence length: ", max_sent_length)
@@ -95,18 +112,18 @@ class trainer():
         print("shape: ", input_ids.shape)
         label_ids = torch.tensor(label_ids[:-1], dtype=torch.int32)
         
-        self.data =  Dataset(input_ids=input_ids, 
+        data =  Dataset(input_ids=input_ids, 
                         label_ids=label_ids, 
-                        max_sent_lenth=hparams.max_sent_length,
+                        max_sent_lenth=max_sent_length,
                         tokenizer=self.tokenizer,
                         tag2index=self.tag2index)
         
         return DataLoader(
-            dataset=self.data, 
+            dataset=data, 
             batch_size=batch_size, 
-            shuffle=True,
-            num_workers=8)
-            # pin_memory=True)
+            shuffle=False,
+            num_workers=8,
+            pin_memory=True)
     
     def train(self):
         print("---------------start training---------------")
@@ -119,7 +136,7 @@ class trainer():
                 input_ids = input_data["input_ids"].to(self.device)
                 input_masks = input_data["input_masks"].to(self.device)
                 label_ids = input_data["label_ids"].to(self.device)
-                label_masks = input_data["label_masks"].to(self.device)
+                # label_masks = input_data["label_masks"].to(self.device)
                 
                 predict = self.model(input_ids, input_masks)
                 
@@ -129,14 +146,9 @@ class trainer():
                 loss.backward()
                 self.optimizer.step()
                 
-                if((idx+1) % 20000 == 0):
-                    PATH = hparams.checkpoint_path.replace("%EPOCH%", str(idx+1))
-                    torch.save(self.model.state_dict(), PATH)
-                    print("\nsaved checkpoint: ", PATH)
-                
             # if ((epoch) % 1 == 0):
             PATH = hparams.checkpoint_path.replace("%EPOCH%", str(epoch))
-            torch.save(self.model.to(hparams.val_cuda).state_dict(), PATH)
+            torch.save(self.model.to(self.val_cuda).state_dict(), PATH)
             print("\nsaved checkpoint: ", PATH)
             
             results,confus_matrix  = self.val(PATH)
@@ -197,28 +209,27 @@ class trainer():
         
         return results
     
-    def load_model(self, path, val_cuda):
+    def load_model(self, path, cuda):
         print("load checkpoint: ", path)
         model = bert_bilstm(
-                    cuda=val_cuda,
+                    cuda=cuda,
                     nb_label=hparams.nb_labels, 
-                    envibert=self.bert).to(val_cuda)  
-        model.load_state_dict(torch.load(path, map_location=val_cuda))
+                    envibert=self.bert).to(cuda)  
+        model.load_state_dict(torch.load(path, map_location=cuda))
         return model
     
     def val(self, path):
         with torch.no_grad():
-            val_cuda = "cuda:"+str(hparams.val_cuda)
-            model = self.model.to(val_cuda)
+            model = self.model.to(self.val_cuda)
             predicts, labels = None, None
             
             model.eval()
             val_tqdm = tqdm(self.val_dl)
             for idx, input_data in enumerate(val_tqdm):
-                input_ids = input_data["input_ids"].to(val_cuda)
-                input_masks = input_data["input_masks"].to(val_cuda)
-                label_ids = input_data["label_ids"].to(val_cuda)
-                label_masks = input_data["label_masks"].to(val_cuda)
+                input_ids = input_data["input_ids"].to(self.val_cuda)
+                input_masks = input_data["input_masks"].to(self.val_cuda)
+                label_ids = input_data["label_ids"].to(self.val_cuda)
+                label_masks = input_data["label_masks"].to(self.val_cuda)
 
                 predict = model(input_ids, input_masks)
                 
@@ -278,7 +289,7 @@ class trainer():
         join_tags = cvt_ids2label(join_tags, index2label=self.index2tag)
         print(join_tokens)
         print(join_tags)
-        out_sent = self.restore(tokens=join_tokens, labels=join_tags)
+        out_sent = restore(tokens=join_tokens, labels=join_tags)
         return out_sent
 
     def infer_sent(self, raw_text):

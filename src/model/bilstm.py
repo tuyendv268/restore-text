@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from src.resources import hparams
 
 class BiLSTM(nn.Module):
     def __init__(self, cuda, embedding_dim, hidden_dim):
@@ -15,6 +16,7 @@ class BiLSTM(nn.Module):
         self.hidden = None
 
     def init_hidden(self, batch_size):
+        torch.manual_seed(hparams.random_seed)
         return (
             torch.randn(2, batch_size, self.hidden_dim // 2).to(self.cuda),
             torch.randn(2, batch_size, self.hidden_dim // 2).to(self.cuda),

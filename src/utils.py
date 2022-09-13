@@ -44,6 +44,9 @@ def convert_data2ids(tokenizer, sent, label, tag2index):
     
     input_ids = tokenizer.convert_tokens_to_ids(tokens)
     label_ids = cvt_label2ids(labels, tag2index)
+    
+    # input_ids = tokens
+    # label_ids = labels
 
     return input_ids, label_ids
 
@@ -51,29 +54,37 @@ def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
     max_sent_length += 2
     
     choice = random.choices(hparams.prob_list, weights=hparams.prob_weight, k=1)[0]
-    offset = random.randint(2,6)
+    offset = random.randint(2,8)
     
-    label_ids = label_ids[label_ids!=tag2index["<pad>"]].tolist()
-    input_ids = input_ids[input_ids!=tokenizer.convert_tokens_to_ids("<pad>")].tolist()
+    label_ids = label_ids[label_ids!=1].tolist()
+    input_ids = input_ids[input_ids!=1].tolist()
     
     label_masks = [1]*len(label_ids)
     input_masks = [1]*len(input_ids)
-
+    
+    start = offset
+    end = -offset
+    while(not tokenizer.convert_ids_to_tokens(input_ids[start]).startswith("▁")):
+        start += 1
+    while(not tokenizer.convert_ids_to_tokens(input_ids[end-1]).startswith("▁")):
+        end -= 1
+    end -= 1
+    
     if choice == "cut_both_sides":
-        label_ids = [0] + label_ids[offset:-offset] + [2]
-        input_ids = [0] + input_ids[offset:-offset] + [2]
-        label_masks = [1] + label_masks[offset:-offset]  + [1]
-        input_masks = [1] + input_masks[offset:-offset]  + [1]
+        label_ids = [0] + label_ids[start:end] + [2]
+        input_ids = [0] + input_ids[start:end] + [2]
+        label_masks = [1] + label_masks[start:end]  + [1]
+        input_masks = [1] + input_masks[start:end]  + [1]
     elif choice == "cut_left_sides":
-        label_ids = [0] + label_ids[offset:] + [2]
-        input_ids = [0] + input_ids[offset:] + [2]
-        label_masks = [1] + label_masks[offset:] + [1]
-        input_masks = [1] + input_masks[offset:] + [1]
+        label_ids = [0] + label_ids[start:] + [2]
+        input_ids = [0] + input_ids[start:] + [2]
+        label_masks = [1] + label_masks[start:] + [1]
+        input_masks = [1] + input_masks[start:] + [1]
     elif choice == "cut_right_sides":
-        label_ids = [0] + label_ids[:-offset] + [2]
-        input_ids = [0] + input_ids[:-offset] + [2]
-        label_masks = [1] + label_masks[:-offset] + [1]
-        input_masks = [1] + input_masks[:-offset] + [1]
+        label_ids = [0] + label_ids[:end] + [2]
+        input_ids = [0] + input_ids[:end] + [2]
+        label_masks = [1] + label_masks[:end] + [1]
+        input_masks = [1] + input_masks[:end] + [1]
     elif choice == "stay_same":
         label_ids = [0] + label_ids + [2]
         input_ids = [0] + input_ids + [2]
@@ -187,6 +198,7 @@ def load_data(files, tag2index, max_sent_length):
             datas_global.append(input_id)
             labels_global.append(label_id)
             
+            
     return (datas_global, labels_global)
                         
 def load_file(path, tokenizer, tag2index, max_sent_length):
@@ -207,6 +219,7 @@ def load_file(path, tokenizer, tag2index, max_sent_length):
                 if len_tmp > max_sent_length:
                     input_id = input_id[0:max_sent_length]
                     label_id = label_id[0:max_sent_length]
+                    datas_temp, labels_temp = "", []
                     continue
 
                 yield input_id, label_id
@@ -227,7 +240,7 @@ def load_folder(files, tokenizer, tag2index, max_sent_length):
         for input_id, label_id in load_file(path=file, tokenizer=tokenizer, tag2index=tag2index, max_sent_length=max_sent_length):
             length = len(input_id)
             
-            if current_len + length< hparams.max_sent_length:
+            if current_len + length< max_sent_length:
                 input_ids_tmp += input_id;label_ids_tmp += label_id
                 current_len += length
             else:
