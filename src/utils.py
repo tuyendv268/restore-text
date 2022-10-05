@@ -54,7 +54,7 @@ def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
     max_sent_length += 2
     
     choice = random.choices(hparams.prob_list, weights=hparams.prob_weight, k=1)[0]
-    offset = random.randint(2,8)
+    offset = random.randint(2,6)
     
     label_ids = label_ids[label_ids!=1].tolist()
     input_ids = input_ids[input_ids!=1].tolist()
@@ -62,13 +62,25 @@ def prepare_data(input_ids, label_ids, max_sent_length, tokenizer, tag2index):
     label_masks = [1]*len(label_ids)
     input_masks = [1]*len(input_ids)
     
+    if len(input_ids) < 3*offset :
+        choice = "stay_same"
+        
     start = offset
     end = -offset
-    while(not tokenizer.convert_ids_to_tokens(input_ids[start]).startswith("▁")):
-        start += 1
-    while(not tokenizer.convert_ids_to_tokens(input_ids[end-1]).startswith("▁")):
-        end -= 1
-    end -= 1
+    
+    # while(not tokenizer.convert_ids_to_tokens(input_ids[start]).startswith("▁")):
+    #     start += 1
+    #     if start >= len(input_ids):
+    #         print("out of length")
+    #         start = offset
+    #         break
+    # while(not tokenizer.convert_ids_to_tokens(input_ids[end-1]).startswith("▁")):
+    #     end -= 1
+    #     if end >= -len(input_ids)+1:
+    #         print("out of length")
+    #         end = -offset
+    #         break
+    # end -= 1
     
     if choice == "cut_both_sides":
         label_ids = [0] + label_ids[start:end] + [2]
@@ -122,34 +134,6 @@ def ignore_label(predicts, labels, ignore_label):
     labels = [[token for token in sent_label if token not in ignore_label] for sent_label in labels]
 
     return predicts, labels
-
-def merge_sent(input_ids, label_ids):
-    n = len(input_ids)
-    
-    new_datas, new_labels = [], []
-    datas_temp, label_temp = [], []
-    current_len, i = 0, 0
-    while i < n:
-        idx = i
-        
-        while(idx < n):
-            if current_len + len(input_ids[idx]) > hparams.max_sent_length:
-                current_len = 0
-                datas_temp += [-1]*(hparams.max_sent_length-len(datas_temp))
-                label_temp += [-1]*(hparams.max_sent_length-len(label_temp))
-                
-                new_datas.append(datas_temp)
-                new_labels.append(label_temp)
-                                
-                datas_temp, label_temp = [], []
-                idx -= 1
-            else:
-                current_len +=  len(label_ids[idx])
-                datas_temp += input_ids[idx]
-                label_temp += label_ids[idx]  
-            idx += 1
-        i = idx + 1
-    return new_datas, new_labels
 
 def load_data_parallel(path, tag2index, max_sent_length):
     files = [os.path.join(path, file) for file in os.listdir(path)]
@@ -236,7 +220,6 @@ def load_folder(files, tokenizer, tag2index, max_sent_length):
         input_ids, label_ids =[], []
         input_ids_tmp, label_ids_tmp =[], []
         current_len, count_sample = 0, 0
-        
         for input_id, label_id in load_file(path=file, tokenizer=tokenizer, tag2index=tag2index, max_sent_length=max_sent_length):
             length = len(input_id)
             
@@ -257,7 +240,7 @@ def load_folder(files, tokenizer, tag2index, max_sent_length):
                 current_len = length
                 input_ids_tmp = input_id
                 label_ids_tmp = label_id
-
+                
 def join(sp_token, sp_tag):
     join_token, join_tag = [], []
     tmp_token, tmp_tag = [], []

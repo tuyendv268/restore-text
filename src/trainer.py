@@ -44,15 +44,16 @@ class trainer():
         self.val_cuda = cuda
         
         if mode == "train":
+            if os.path.exists(hparams.warm_up) and is_warm_up == True:
+                print("warm up: ", hparams.warm_up)
+                self.model.load_state_dict(torch.load(hparams.warm_up, map_location=self.device))
+
             if hparams.parallel == True:
                 self.model = nn.DataParallel(self.model).to(self.device)
                 self.val_cuda = hparams.cuda
             else:
                 self.model = self.model.to(self.device)
                                 
-            if os.path.exists(hparams.warm_up) and is_warm_up == True:
-                print("warm up: ", hparams.warm_up)
-                self.model.load_state_dict(torch.load(hparams.warm_up, map_location=self.device))
                 
             self.train_dl = self.load_data(path=hparams.train_path, 
                                            batch_size=hparams.train_bs, 
@@ -80,11 +81,6 @@ class trainer():
                 self.model.load_state_dict(torch.load(self.infer_path, map_location="cpu"))
             self.model.eval()
         
-        elif mode == "demo":
-            self.test_dl = self.load_data(path=hparams.test_path, 
-                                           batch_size=hparams.test_bs, 
-                                           tag2index=self.tag2index,
-                                           max_sent_length=hparams.max_sent_length)
     def set_seed(self, seed: int = 8888) -> None:
         np.random.seed(seed)
         random.seed(seed)
@@ -97,7 +93,7 @@ class trainer():
         os.environ["PYTHONHASHSEED"] = str(seed)
         print(f"Random seed set as {seed}")
 
-    def load_data(self, path, batch_size, tag2index,max_sent_length):
+    def load_data(self, path, batch_size, tag2index, max_sent_length):
         print("load data: ", path)
         print("max sentence length: ", max_sent_length)
         
@@ -112,17 +108,17 @@ class trainer():
         print("shape: ", input_ids.shape)
         label_ids = torch.tensor(label_ids[:-1], dtype=torch.int32)
         
-        data =  Dataset(input_ids=input_ids, 
+        self.data =  Dataset(input_ids=input_ids, 
                         label_ids=label_ids, 
                         max_sent_lenth=max_sent_length,
                         tokenizer=self.tokenizer,
                         tag2index=self.tag2index)
         
         return DataLoader(
-            dataset=data, 
+            dataset=self.data, 
             batch_size=batch_size, 
-            shuffle=False,
-            num_workers=8,
+            shuffle=True,
+            num_workers=12,
             pin_memory=True)
     
     def train(self):

@@ -25,7 +25,12 @@ class bert_bilstm(nn.Module):
             print("use: xlm roberta")
             self.tokenizer = XLMRobertaTokenizer.from_pretrained('xlm-roberta-base')
             self.bert = XLMRobertaModel.from_pretrained("xlm-roberta-base")
-            
+        if hparams.freeze:
+            print("freeze: ", hparams.num_freeze_layers)
+            for idx, child in enumerate(self.bert.children()):
+                if idx < hparams.num_freeze_layers:
+                    for param in child.parameters():
+                        param.require_grad = False
         self.bilstm = BiLSTM(
             cuda=cuda, 
             embedding_dim=hparams.hidden_dim_bert, 
