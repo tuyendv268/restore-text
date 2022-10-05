@@ -1,0 +1,5 @@
+nltk
+roman
+vncorenlp
+num2words
+vietnam_number

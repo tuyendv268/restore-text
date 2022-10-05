@@ -2,7 +2,7 @@
 bert="envibert_cased"
 # bert="envibert_uncased"
 # bert="xlmr"
-mode="test"
+mode="train"
 
 nb_labels= 9
 hidden_dim_lstm=256
@@ -27,7 +27,7 @@ cuda="cuda:0"
 device_ids=[0,1,2,3]
 
 # path
-train_path="/home/tuyendv/projects/text-restoration-tag-label/temp/train"
+train_path="/home/tuyendv/projects/text-restoration-tag-label/temp/test"
 test_path="/home/tuyendv/datas/datas/chatbot/test"
 val_path="/home/tuyendv/projects/text-restoration-tag-label/temp/test"
 
